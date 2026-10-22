@@ -203,14 +203,36 @@ const bindHomeGallery = () => {
   }
 };
 
-const bindTeam1000Form = () => {
-  const dialog = document.querySelector('.team1000-form-dialog');
+const bindTeam1000EventCarousel = () => {
+  const track = document.querySelector('#team1000-event-track');
+  const previous = document.querySelector('[data-team1000-event-prev]');
+  const next = document.querySelector('[data-team1000-event-next]');
+
+  if (!track) return;
+
+  const scrollCarousel = (direction) => {
+    const slide = track.querySelector('.team1000-event-slide');
+    if (!slide) return;
+
+    const gap = Number.parseFloat(window.getComputedStyle(track).gap) || 0;
+    track.scrollBy({
+      left: direction * (slide.getBoundingClientRect().width + gap),
+      behavior: 'smooth'
+    });
+  };
+
+  previous?.addEventListener('click', () => scrollCarousel(-1));
+  next?.addEventListener('click', () => scrollCarousel(1));
+};
+
+const bindRegistrationDialog = (dialogSelector, openButtonSelector) => {
+  const dialog = document.querySelector(dialogSelector);
   const frame = dialog?.querySelector('.team1000-form-frame');
   const close = dialog?.querySelector('.team1000-form-close');
 
   if (!dialog || !frame || !close) return;
 
-  document.querySelectorAll('[data-open-team1000-form]').forEach((button) => {
+  document.querySelectorAll(openButtonSelector).forEach((button) => {
     button.addEventListener('click', () => {
       if (!frame.src) frame.src = frame.dataset.src;
       dialog.showModal();
@@ -238,7 +260,9 @@ document.addEventListener('DOMContentLoaded', () => {
   setHeaderState();
   addBrandFallback();
   bindHomeGallery();
-  bindTeam1000Form();
+  bindTeam1000EventCarousel();
+  bindRegistrationDialog('.team1000-form-dialog:not(.team1000-event-dialog)', '[data-open-team1000-form]');
+  bindRegistrationDialog('.team1000-event-dialog', '[data-open-team1000-event-form]');
   bindDropdownDesktop();
   bindMobileNavigation();
 });

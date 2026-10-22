@@ -145,9 +145,10 @@ button {
 
 .brand-wordmark span {
   display: block;
-  font-size: 0.5rem;
-  letter-spacing: 0.24em;
-  color: #94751a;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #755b0e;
 }
 
 .main-nav {
@@ -1140,7 +1141,7 @@ button {
   }
 
   .brand-wordmark span {
-    font-size: 0.43rem;
+    font-size: 0.54rem;
   }
 
   .company-section,
@@ -3035,7 +3036,7 @@ body.companies-page :is(h1, h2, h3, h4, h5, h6) {
 
 .brand-wordmark strong {
   font-size: 1.2rem;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 @media (max-width: 990px) {
@@ -3261,6 +3262,125 @@ body.companies-page :is(h1, h2, h3, h4, h5, h6) {
   font-weight: 600;
 }
 
+.team1000-event {
+  background: #f7f2ed;
+}
+
+.team1000-event-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(250px, 0.7fr);
+  align-items: center;
+  gap: clamp(30px, 5vw, 64px);
+}
+
+.team1000-event-gallery {
+  min-width: 0;
+}
+
+.team1000-event-gallery .team1000-section-heading {
+  max-width: 720px;
+  margin-bottom: 24px;
+}
+
+.team1000-event-gallery .team1000-section-heading h2 {
+  margin-bottom: 12px;
+  font-size: clamp(2rem, 3.5vw, 3rem);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.team1000-event-gallery .team1000-section-heading p {
+  color: var(--color-muted);
+}
+
+.team1000-event-carousel {
+  min-width: 0;
+}
+
+.team1000-event-controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.team1000-event-controls .gallery-control {
+  background: var(--color-white);
+  color: var(--color-navy);
+}
+
+.team1000-event-track {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 0 2px 14px;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  scrollbar-color: var(--color-gold) #e6e2d8;
+  scrollbar-width: thin;
+}
+
+.team1000-event-track:focus-visible {
+  outline: 3px solid var(--color-gold);
+  outline-offset: 4px;
+}
+
+.team1000-event-slide {
+  flex: 0 0 min(78%, 300px);
+  overflow: hidden;
+  border-radius: 10px;
+  background: #4c1009;
+  box-shadow: var(--shadow-soft);
+  scroll-snap-align: start;
+}
+
+.team1000-event-slide img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: contain;
+}
+
+.team1000-event-slide figcaption {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--color-white);
+  color: var(--color-navy);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.team1000-event-details {
+  padding: clamp(28px, 4vw, 42px);
+  border-radius: 10px;
+  background: var(--color-navy);
+  color: var(--color-white);
+}
+
+.team1000-event-details .team1000-card-label {
+  color: #e2c458;
+}
+
+.team1000-event-details h3 {
+  margin-bottom: 14px;
+  font-size: clamp(1.7rem, 3vw, 2.3rem);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.team1000-event-details p {
+  margin-bottom: 22px;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.team1000-event-details .btn {
+  width: 100%;
+  min-height: 50px;
+}
+
 .team1000-cta {
   padding: 78px 0;
   background: var(--color-navy);
@@ -3353,10 +3473,38 @@ body.companies-page :is(h1, h2, h3, h4, h5, h6) {
   border: 0;
 }
 
+.team1000-event-form-note {
+  margin-bottom: 12px;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+}
+
+.team1000-event-form-link {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--color-navy);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.team1000-event-form-link:focus-visible {
+  outline: 3px solid var(--color-gold);
+  outline-offset: 3px;
+}
+
 @media (max-width: 990px) {
   .team1000-intro-grid {
     grid-template-columns: 1fr;
     gap: 26px;
+  }
+
+  .team1000-event-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .team1000-event-details {
+    max-width: 600px;
   }
 
   .team1000-value-list {
@@ -3407,6 +3555,10 @@ body.companies-page :is(h1, h2, h3, h4, h5, h6) {
     min-height: 64px;
     padding: 12px;
     font-size: 0.84rem;
+  }
+
+  .team1000-event-slide {
+    flex-basis: min(82%, 280px);
   }
 
   .team1000-cta {
