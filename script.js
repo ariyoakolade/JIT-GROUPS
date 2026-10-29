@@ -30,7 +30,48 @@ const companyConfig = [
     image: 'image/radio-studio.jpg',
     alt: 'Audio mixing equipment and instruments in a recording studio.',
     url: 'https://www.helloradiotv.com/'
+  },
+  {
+    id: 'nextgen-football-academy',
+    name: 'Nextgen Football Academy',
+    description: 'Football academy focused on developing players and supporting their growth in the sport.',
+    image: 'Images/Gallery/Football academy.jpg',
+    alt: 'Football-themed stock photo.',
+    url: 'https://nextgenfootballacademy.org/'
+  },
+  {
+    id: 'jit-institute-of-learning',
+    name: 'JIT Institute of Learning',
+    description: 'Learning and educational opportunities through JIT Institute of Learning.',
+    image: 'Images/Gallery/Institute learning.jpg',
+    alt: 'Books and learning materials arranged on a desk.',
+    url: 'https://www.jitlearninginstitute.com/'
   }
+];
+
+const galleryImagePaths = [
+  'Images/Gallery/1 (1).jpg',
+  'Images/Gallery/1 (4).jpg',
+  'Images/Gallery/1 (5).jpg',
+  'Images/Gallery/1 (8).JPG',
+  'Images/Gallery/1 (9).JPG',
+  'Images/Gallery/1 (10).JPG',
+  'Images/Gallery/1 (13).JPG',
+  'Images/Gallery/1.jpg',
+  'Images/Gallery/Home page.jpeg',
+  'Images/Gallery/Home page 2.jpeg',
+  'Images/Gallery/Home page 3.jpeg',
+  'Images/Gallery/Home page 5.jpeg',
+  'Images/Gallery/WhatsApp Image 2026-10-28 at 10.41.09 AM.jpeg',
+  'Images/Gallery/WhatsApp Image 2026-10-28 at 10.41.11 AM.jpeg',
+  'Images/Gallery/WhatsApp Image 2026-10-28 at 10.41.43 AM.jpeg',
+  'Images/Gallery/WhatsApp Image 2026-10-28 at 10.41.43 AM (1).jpeg',
+  'Images/Gallery/WhatsApp Image 2026-10-28 at 10.41.45 AM.jpeg',
+  'Images/Gallery/WhatsApp Image 2026-10-28 at 10.41.47 AM (1).jpeg',
+  'Images/Gallery/WhatsApp Image 2026-10-28 at 10.41.48 AM.jpeg',
+  'Images/Gallery/WhatsApp Image 2026-10-28 at 10.41.50 AM.jpeg',
+  'Images/Gallery/Football academy.jpg',
+  'Images/Gallery/Institute learning.jpg'
 ];
 
 const renderCompanyCards = () => {
@@ -52,6 +93,29 @@ const renderCompanyCards = () => {
       </article>
     `;
   }).join('');
+};
+
+const renderHomeGallery = () => {
+  const tracks = document.querySelectorAll('.home-gallery-track');
+  if (!tracks.length) return;
+
+  tracks.forEach((track, rowIndex) => {
+    const images = galleryImagePaths.filter((_, index) => index % tracks.length === rowIndex);
+    const imageSet = document.createElement('div');
+    imageSet.className = 'home-gallery-set';
+
+    images.forEach((src) => {
+      const image = document.createElement('img');
+      image.src = src;
+      image.alt = 'JIT Group of Companies gallery photo';
+      image.loading = 'lazy';
+      imageSet.append(image);
+    });
+
+    const duplicateSet = imageSet.cloneNode(true);
+    duplicateSet.setAttribute('aria-hidden', 'true');
+    track.append(imageSet, duplicateSet);
+  });
 };
 
 const setHeaderState = () => {
@@ -155,54 +219,6 @@ const addBrandFallback = () => {
   });
 };
 
-const bindHomeGallery = () => {
-  const track = document.querySelector('#home-gallery-track');
-  const previous = document.querySelector('[data-gallery-prev]');
-  const next = document.querySelector('[data-gallery-next]');
-  const lightbox = document.querySelector('.gallery-lightbox');
-  const lightboxImage = document.querySelector('.gallery-lightbox-image');
-  const lightboxCaption = document.querySelector('.gallery-lightbox-caption');
-  const lightboxClose = document.querySelector('.gallery-lightbox-close');
-
-  if (!track) return;
-
-  const scrollGallery = (direction) => {
-    const slide = track.querySelector('.home-gallery-slide');
-    if (!slide) return;
-
-    const gap = Number.parseFloat(window.getComputedStyle(track).gap) || 0;
-    track.scrollBy({
-      left: direction * (slide.getBoundingClientRect().width + gap),
-      behavior: 'smooth'
-    });
-  };
-
-  if (previous && next) {
-    previous.addEventListener('click', () => scrollGallery(-1));
-    next.addEventListener('click', () => scrollGallery(1));
-  }
-
-  if (lightbox && lightboxImage && lightboxCaption && lightboxClose) {
-    track.querySelectorAll('.gallery-image-button').forEach((button) => {
-      button.addEventListener('click', () => {
-        const image = button.querySelector('img');
-        const caption = button.closest('.home-gallery-slide')?.querySelector('figcaption');
-        if (!image) return;
-
-        lightboxImage.src = image.currentSrc || image.src;
-        lightboxImage.alt = image.alt;
-        lightboxCaption.textContent = caption?.textContent.trim() || image.alt;
-        lightbox.showModal();
-      });
-    });
-
-    lightboxClose.addEventListener('click', () => lightbox.close());
-    lightbox.addEventListener('click', (event) => {
-      if (event.target === lightbox) lightbox.close();
-    });
-  }
-};
-
 const bindTeam1000EventCarousel = () => {
   const track = document.querySelector('#team1000-event-track');
   const previous = document.querySelector('[data-team1000-event-prev]');
@@ -223,6 +239,50 @@ const bindTeam1000EventCarousel = () => {
 
   previous?.addEventListener('click', () => scrollCarousel(-1));
   next?.addEventListener('click', () => scrollCarousel(1));
+};
+
+const bindTeam1000Signup = () => {
+  const roleDialog = document.querySelector('.team1000-role-dialog');
+  const formDialog = document.querySelector('.team1000-form-dialog:not(.team1000-event-dialog):not(.team1000-role-dialog)');
+  const formFrame = formDialog?.querySelector('.team1000-form-frame');
+  const formTitle = formDialog?.querySelector('#team1000-form-title');
+  const formLabel = formDialog?.querySelector('.team1000-form-header .section-label');
+  const formLink = formDialog?.querySelector('.team1000-form-link');
+
+  if (!roleDialog || !formDialog || !formFrame || !formTitle || !formLabel || !formLink) return;
+
+  document.querySelectorAll('[data-open-team1000-form]').forEach((button) => {
+    button.addEventListener('click', () => roleDialog.showModal());
+  });
+
+  roleDialog.querySelectorAll('[data-team1000-role]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const formUrl = button.dataset.formUrl;
+      const role = button.dataset.team1000Role;
+      if (!formUrl || !role) return;
+
+      formTitle.textContent = `${role} Registration`;
+      formLabel.textContent = `${role} Registration`;
+      formFrame.title = `JIT Team 1000 ${role.toLowerCase()} registration form`;
+      formFrame.src = `${formUrl}?embedded=true`;
+      formLink.href = formUrl;
+      roleDialog.close();
+      formDialog.showModal();
+      formDialog.querySelector('.team1000-form-close')?.focus();
+    });
+  });
+
+  roleDialog.querySelectorAll('.team1000-form-close').forEach((button) => {
+    button.addEventListener('click', () => roleDialog.close());
+  });
+  roleDialog.addEventListener('click', (event) => {
+    if (event.target === roleDialog) roleDialog.close();
+  });
+
+  formDialog.querySelector('.team1000-form-close').addEventListener('click', () => formDialog.close());
+  formDialog.addEventListener('click', (event) => {
+    if (event.target === formDialog) formDialog.close();
+  });
 };
 
 const bindRegistrationDialog = (dialogSelector, openButtonSelector) => {
@@ -259,9 +319,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (year) year.textContent = String(new Date().getFullYear());
   setHeaderState();
   addBrandFallback();
-  bindHomeGallery();
+  renderHomeGallery();
   bindTeam1000EventCarousel();
-  bindRegistrationDialog('.team1000-form-dialog:not(.team1000-event-dialog)', '[data-open-team1000-form]');
+  bindTeam1000Signup();
   bindRegistrationDialog('.team1000-event-dialog', '[data-open-team1000-event-form]');
   bindDropdownDesktop();
   bindMobileNavigation();
