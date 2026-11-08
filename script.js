@@ -219,31 +219,9 @@ const addBrandFallback = () => {
   });
 };
 
-const bindTeam1000EventCarousel = () => {
-  const track = document.querySelector('#team1000-event-track');
-  const previous = document.querySelector('[data-team1000-event-prev]');
-  const next = document.querySelector('[data-team1000-event-next]');
-
-  if (!track) return;
-
-  const scrollCarousel = (direction) => {
-    const slide = track.querySelector('.team1000-event-slide');
-    if (!slide) return;
-
-    const gap = Number.parseFloat(window.getComputedStyle(track).gap) || 0;
-    track.scrollBy({
-      left: direction * (slide.getBoundingClientRect().width + gap),
-      behavior: 'smooth'
-    });
-  };
-
-  previous?.addEventListener('click', () => scrollCarousel(-1));
-  next?.addEventListener('click', () => scrollCarousel(1));
-};
-
 const bindTeam1000Signup = () => {
   const roleDialog = document.querySelector('.team1000-role-dialog');
-  const formDialog = document.querySelector('.team1000-form-dialog:not(.team1000-event-dialog):not(.team1000-role-dialog)');
+  const formDialog = document.querySelector('.team1000-form-dialog:not(.team1000-role-dialog)');
   const formFrame = formDialog?.querySelector('.team1000-form-frame');
   const formTitle = formDialog?.querySelector('#team1000-form-title');
   const formLabel = formDialog?.querySelector('.team1000-form-header .section-label');
@@ -252,7 +230,10 @@ const bindTeam1000Signup = () => {
   if (!roleDialog || !formDialog || !formFrame || !formTitle || !formLabel || !formLink) return;
 
   document.querySelectorAll('[data-open-team1000-form]').forEach((button) => {
-    button.addEventListener('click', () => roleDialog.showModal());
+    button.addEventListener('click', () => {
+      document.querySelector('.team1000-promo-dialog')?.close();
+      roleDialog.showModal();
+    });
   });
 
   roleDialog.querySelectorAll('[data-team1000-role]').forEach((button) => {
@@ -285,32 +266,15 @@ const bindTeam1000Signup = () => {
   });
 };
 
-const bindRegistrationDialog = (dialogSelector, openButtonSelector) => {
-  const dialog = document.querySelector(dialogSelector);
-  const frame = dialog?.querySelector('.team1000-form-frame');
-  const close = dialog?.querySelector('.team1000-form-close');
+const bindTeam1000Promo = () => {
+  const dialog = document.querySelector('.team1000-promo-dialog');
+  if (!dialog) return;
 
-  if (!dialog || !frame || !close) return;
-
-  document.querySelectorAll(openButtonSelector).forEach((button) => {
-    button.addEventListener('click', () => {
-      if (!frame.src) frame.src = frame.dataset.src;
-      dialog.showModal();
-      close.focus();
-    });
-  });
-
-  close.addEventListener('click', () => dialog.close());
-  dialog.addEventListener('cancel', () => dialog.close());
-  dialog.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      dialog.close();
-    }
-  });
+  dialog.querySelector('[data-close-team1000-promo]')?.addEventListener('click', () => dialog.close());
   dialog.addEventListener('click', (event) => {
     if (event.target === dialog) dialog.close();
   });
+  dialog.showModal();
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -320,9 +284,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setHeaderState();
   addBrandFallback();
   renderHomeGallery();
-  bindTeam1000EventCarousel();
   bindTeam1000Signup();
-  bindRegistrationDialog('.team1000-event-dialog', '[data-open-team1000-event-form]');
+  bindTeam1000Promo();
   bindDropdownDesktop();
   bindMobileNavigation();
 });

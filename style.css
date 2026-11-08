@@ -3201,84 +3201,24 @@ body.companies-page :is(h1, h2, h3, h4, h5, h6) {
   gap: clamp(30px, 5vw, 64px);
 }
 
-.team1000-event-gallery {
+.team1000-event-intro {
   min-width: 0;
 }
 
-.team1000-event-gallery .team1000-section-heading {
+.team1000-event-intro .team1000-section-heading {
   max-width: 720px;
   margin-bottom: 24px;
 }
 
-.team1000-event-gallery .team1000-section-heading h2 {
+.team1000-event-intro .team1000-section-heading h2 {
   margin-bottom: 12px;
   font-size: clamp(2rem, 3.5vw, 3rem);
   font-weight: 700;
   line-height: 1.1;
 }
 
-.team1000-event-gallery .team1000-section-heading p {
+.team1000-event-intro .team1000-section-heading p {
   color: var(--color-muted);
-}
-
-.team1000-event-carousel {
-  min-width: 0;
-}
-
-.team1000-event-controls {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.team1000-event-controls .gallery-control {
-  background: var(--color-white);
-  color: var(--color-navy);
-}
-
-.team1000-event-track {
-  display: flex;
-  gap: 16px;
-  overflow-x: auto;
-  padding: 0 2px 14px;
-  scroll-behavior: smooth;
-  scroll-snap-type: x mandatory;
-  scrollbar-color: var(--color-gold) #e6e2d8;
-  scrollbar-width: thin;
-}
-
-.team1000-event-track:focus-visible {
-  outline: 3px solid var(--color-gold);
-  outline-offset: 4px;
-}
-
-.team1000-event-slide {
-  flex: 0 0 min(78%, 300px);
-  overflow: hidden;
-  border-radius: 10px;
-  background: #4c1009;
-  box-shadow: var(--shadow-soft);
-  scroll-snap-align: start;
-}
-
-.team1000-event-slide img {
-  display: block;
-  width: 100%;
-  aspect-ratio: 3 / 4;
-  object-fit: contain;
-}
-
-.team1000-event-slide figcaption {
-  min-height: 58px;
-  display: flex;
-  align-items: center;
-  padding: 10px 14px;
-  background: var(--color-white);
-  color: var(--color-navy);
-  font-size: 0.9rem;
-  font-weight: 600;
-  line-height: 1.4;
 }
 
 .team1000-event-details {
@@ -3299,12 +3239,129 @@ body.companies-page :is(h1, h2, h3, h4, h5, h6) {
   line-height: 1.1;
 }
 
-.team1000-event-details p {
-  margin-bottom: 22px;
+.team1000-event-facts {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.team1000-event-facts dt {
+  margin-bottom: 4px;
+  color: #e2c458;
+  font-weight: 600;
+}
+
+.team1000-event-facts dd {
   color: rgba(255, 255, 255, 0.82);
 }
 
-.team1000-event-details .btn {
+.team1000-event-details .btn,
+.team1000-shirt-content .btn {
+  width: 100%;
+  min-height: 50px;
+}
+
+.team1000-shirt {
+  background: var(--color-white);
+  scroll-margin-top: 100px;
+}
+
+.team1000-shirt-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  align-items: center;
+  gap: clamp(30px, 5vw, 64px);
+}
+
+.team1000-shirt-image {
+  display: block;
+  width: 100%;
+  border-radius: 10px;
+  background: #f0f0f0;
+  box-shadow: var(--shadow-soft);
+}
+
+.team1000-shirt-content h2 {
+  margin-bottom: 14px;
+  font-size: clamp(2rem, 3.5vw, 3rem);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.team1000-shirt-content > p:not(.team1000-shirt-price) {
+  margin-bottom: 18px;
+  color: var(--color-muted);
+}
+
+.team1000-shirt-price {
+  margin-bottom: 20px;
+  color: var(--color-navy);
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.team1000-promo-dialog {
+  width: min(860px, calc(100% - 32px));
+  max-width: none;
+  max-height: 92dvh;
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: 14px;
+  background: var(--color-white);
+  color: var(--color-black);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.3);
+}
+
+.team1000-promo-dialog::backdrop {
+  background: rgba(8, 20, 24, 0.78);
+  backdrop-filter: blur(4px);
+}
+
+.team1000-promo-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.95fr);
+  align-items: center;
+  gap: clamp(24px, 4vw, 40px);
+  padding: clamp(20px, 4vw, 36px);
+}
+
+.team1000-promo-image {
+  display: block;
+  width: 100%;
+  border-radius: 10px;
+  background: #f0f0f0;
+}
+
+.team1000-promo-content {
+  position: relative;
+  padding-top: 40px;
+}
+
+.team1000-promo-content .team1000-form-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.team1000-promo-content h2 {
+  margin-bottom: 12px;
+  font-size: clamp(1.8rem, 3.5vw, 2.5rem);
+  line-height: 1.1;
+}
+
+.team1000-promo-content > p {
+  margin-bottom: 22px;
+  color: var(--color-muted);
+}
+
+.team1000-promo-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.team1000-promo-actions .btn {
   width: 100%;
   min-height: 50px;
 }
@@ -3463,26 +3520,6 @@ body.companies-page :is(h1, h2, h3, h4, h5, h6) {
   outline-offset: 3px;
 }
 
-.team1000-event-form-note {
-  margin-bottom: 12px;
-  color: var(--color-muted);
-  font-size: 0.9rem;
-}
-
-.team1000-event-form-link {
-  display: inline-block;
-  margin-top: 10px;
-  color: var(--color-navy);
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.team1000-event-form-link:focus-visible {
-  outline: 3px solid var(--color-gold);
-  outline-offset: 3px;
-}
-
 @media (max-width: 990px) {
   .team1000-intro-grid {
     grid-template-columns: 1fr;
@@ -3495,6 +3532,19 @@ body.companies-page :is(h1, h2, h3, h4, h5, h6) {
 
   .team1000-event-details {
     max-width: 600px;
+  }
+
+  .team1000-shirt-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .team1000-promo-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .team1000-shirt-image {
+    max-width: 680px;
+    margin: 0 auto;
   }
 
   .team1000-value-list {
@@ -3545,10 +3595,6 @@ body.companies-page :is(h1, h2, h3, h4, h5, h6) {
     min-height: 64px;
     padding: 12px;
     font-size: 0.84rem;
-  }
-
-  .team1000-event-slide {
-    flex-basis: min(82%, 280px);
   }
 
   .team1000-cta {
