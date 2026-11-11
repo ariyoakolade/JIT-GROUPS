@@ -19,34 +19,20 @@
       .label { display: block; color: #866718; text-transform: uppercase; letter-spacing: .15em; font-size: .75rem; font-weight: 700; }
       h1 { margin: 8px 0 12px; color: #102b33; font-size: clamp(1.7rem, 5vw, 2.2rem); }
       p { color: #647276; line-height: 1.65; }
-      .button { display: inline-block; margin-top: 12px; padding: 13px 20px; border-radius: 6px; background: #c69a2b; color: #171b1b; font-weight: 700; text-decoration: none; }
-      .button[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
-      .setup-note { margin-top: 22px; padding: 13px; border-radius: 6px; background: #fff4d9; color: #654c13; font-size: .85rem; text-align: center; }
+      .button { display: inline-block; margin: 12px 6px 0; padding: 13px 20px; border-radius: 6px; background: #c69a2b; color: #171b1b; font-weight: 700; text-decoration: none; }
+      .button.secondary { background: #e8efed; color: #102b33; }
       .home { display: block; width: fit-content; margin: 22px auto 0; color: #102b33; font-size: .86rem; }
     </style>
   </head>
   <body>
     <main class="card">
       <img src="image/Company%27s%20logo.png" alt="JIT Group of Companies" />
-      <span class="label">JIT Travels · Staff access</span>
+      <span class="label">JIT Travels · Secure application portal</span>
       <h1>Visa Application Tracker</h1>
-      <p>Sign in with an authorised Google account to view and update client applications.</p>
-      <a class="button" id="open-tracker" href="#" aria-disabled="true">Open the tracker</a>
+      <p>Staff can manage applications with their JIT account. Clients can securely view progress using their email link.</p>
+      <a class="button" href="/visa-tracker/login/">Staff sign in</a>
+      <a class="button secondary" href="/visa-tracker/portal/">Client progress</a>
       <a class="home" href="index.html">Return to the JIT Group website</a>
-      <div class="setup-note" id="setup-note">
-        The tracker link is not configured yet. Follow the setup guide to connect your existing Google Sheet and deploy the staff application.
-      </div>
     </main>
-    <script>
-      const TRACKER_APP_URL = "https://script.google.com/macros/s/AKfycbzK98xCh9hdVBFELLtSMHlhZiCDbWWiaOcujQxIduEEXKel3e6vCW_n08v_AoUC7qB2/exec";
-      const trackerLink = document.getElementById("open-tracker");
-      if (TRACKER_APP_URL.startsWith("https://script.google.com/")) {
-        trackerLink.href = TRACKER_APP_URL;
-        trackerLink.removeAttribute("aria-disabled");
-        document.getElementById("setup-note").hidden = true;
-      } else {
-        trackerLink.addEventListener("click", (event) => event.preventDefault());
-      }
-    </script>
   </body>
 </html>
