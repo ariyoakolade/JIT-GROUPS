@@ -45,8 +45,9 @@ function render(client, application, documents, timeline) {
     </div>
     <h2>Document checklist</h2>
     <div class="doc-list">${documents.length ? documents.map((document) => {
-      const state = document.applicable ? document.status.replace("_", " ") : "Not applicable";
-      const badge = document.status === "verified" ? "good" : document.status === "needs_correction" ? "bad" : "";
+      const labels = { pending: "Not submitted", received: "Submitted", verified: "Verified", needs_correction: "Needs correction" };
+      const state = document.applicable ? labels[document.status] : "Not applicable";
+      const badge = document.applicable && document.status === "verified" ? "good" : document.applicable && document.status === "needs_correction" ? "bad" : "";
       return `<div class="doc-row"><span>${escapeHtml(document.label)}${document.required && document.applicable ? " · Required" : ""}</span><span class="badge ${badge}">${escapeHtml(state)}</span></div>`;
     }).join("") : `<p class="muted">Your checklist will appear here when it is ready.</p>`}</div>
     <h2>Application stages</h2>

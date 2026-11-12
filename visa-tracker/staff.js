@@ -8,11 +8,15 @@ const state = { profile: null, clients: [], applications: [], documents: [], sel
 const message = $("[data-message]");
 const list = $("[data-list]");
 const detail = $("[data-detail]");
+const isDetailPage = Boolean(detail);
+if (isDetailPage) state.selectedId = new URLSearchParams(window.location.search).get("id");
 const dialog = $("[data-dialog]");
 
 function toast(text, error = false) {
-  showMessage(message, text, error);
-  window.setTimeout(() => { message.hidden = true; }, 7000);
+  const target = (detail && $("[data-detail-message]", detail)) || message;
+  if (!target) throw new Error("The portal status message area is unavailable.");
+  showMessage(target, text, error);
+  window.setTimeout(() => { target.hidden = true; }, 7000);
 }
 
 function getClient(clientId) {
@@ -75,9 +79,11 @@ async function loadData() {
   for (const application of state.applications) {
     application.staffDetails = state.privateDetails.find((item) => item.application_id === application.id) || null;
   }
-  renderList();
-  renderDetail();
-  renderReports();
+  if (isDetailPage) renderDetail();
+  else {
+    renderList();
+    renderReports();
+  }
 }
 
 function renderList() {
@@ -97,69 +103,79 @@ function renderList() {
     const status = applicationStatus(application);
     const className = status === "Visa Approved" ? "good" : status === "Visa Refused" ? "bad" : "";
     return `<tr>
-      <td data-label="Client"><button class="text-button" data-open="${escapeHtml(application.id)}">${escapeHtml(client.full_name)}</button></td>
+      <td data-label="Client"><a class="text-button" href="/visa-tracker/staff/application/?id=${encodeURIComponent(application.id)}">${escapeHtml(client.full_name)}</a></td>
       <td data-label="Reference">${escapeHtml(application.reference)}</td>
       <td data-label="Destination">${escapeHtml(application.destination)}</td>
       <td data-label="Status"><span class="badge ${className}">${escapeHtml(status)}</span></td>
       <td data-label="Progress"><div class="progress"><span style="width:${percent}%"></span></div><small>${percent}%</small></td>
     </tr>`;
   }).join("")}</tbody></table></div>`;
-  list.querySelectorAll("[data-open]").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.selectedId = button.dataset.open;
-      renderDetail();
-      detail.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  });
 }
 
 function options(current, values) {
   return values.map((value) => `<option value="${escapeHtml(value)}"${current === value ? " selected" : ""}>${escapeHtml(value || "(Not set)")}</option>`).join("");
 }
 
+function statusOptions(current) {
+  const prompt = current === "needs_correction"
+    ? `<option value="" selected disabled>Needs correction — choose status</option>` : "";
+  return prompt + [["pending", "Not submitted"], ["received", "Submitted"], ["verified", "Verified"]]
+    .map(([value, label]) => `<option value="${value}"${current === value ? " selected" : ""}>${label}</option>`).join("");
+}
+
 function renderDetail() {
   const application = getApplication(state.selectedId);
   if (!application) {
-    detail.hidden = true;
-    detail.innerHTML = "";
+    detail.innerHTML = `<p class="notice error">Application not found or you do not have access. Return to the application list and try again.</p>`;
     return;
   }
   const client = getClient(application.client_id);
+  if (!client) {
+    detail.innerHTML = `<p class="notice error">The client record could not be found. Return to the application list and try again.</p>`;
+    return;
+  }
   const documents = getDocuments(application.id);
   const required = documents.filter((document) => document.required && document.applicable);
   const canProceed = documents.length > 0 && required.every((document) => document.status === "verified");
   const percent = progressValue(application);
-  const allStagesComplete = application.ukvi_status === "Completed" &&
-    application.payment_status === "Payment Confirmation Received" &&
-    application.appointment_status === "Appointment Booked" &&
-    application.upload_status === "Completed";
-
-  detail.hidden = false;
+  const draft = {};
+  const previousForm = $("[data-workflow]", detail);
+  const previousNoteForm = $("[data-note-form]", detail);
+  const noteDraft = previousNoteForm && detail.dataset.applicationId === application.id
+    ? Object.fromEntries(new FormData(previousNoteForm)) : {};
+  if (previousForm && detail.dataset.applicationId === application.id) {
+    for (const [key, value] of new FormData(previousForm)) draft[key] = value;
+  }
+  detail.dataset.applicationId = application.id;
   detail.innerHTML = `
-    <div class="card-heading"><div><p class="eyebrow">${escapeHtml(application.reference)}</p><h2>${escapeHtml(client.full_name)}</h2></div><button class="button outline" data-close-detail>Back</button></div>
-    <div class="facts">
-      <div><small class="muted">Email</small><p>${escapeHtml(client.email)}</p></div>
-      <div><small class="muted">Phone</small><p>${escapeHtml(client.phone)}</p></div>
-      <div><small class="muted">Destination / visa</small><p>${escapeHtml(application.destination)} · ${escapeHtml(application.visa_category)}</p></div>
+    <div class="detail-header"><div><p class="eyebrow">Client application · ${escapeHtml(application.reference)}</p><h1 id="detail-title">${escapeHtml(client.full_name)}</h1><p class="muted">${escapeHtml(application.destination)} · ${escapeHtml(application.visa_category)}</p></div><span class="badge application-status">${escapeHtml(applicationStatus(application))}</span></div>
+    <p class="notice" data-detail-message role="status" aria-live="polite" hidden></p>
+    <div class="facts application-facts">
+      <div><small class="muted">Client email</small><p>${escapeHtml(client.email)}</p></div>
+      <div><small class="muted">Phone number</small><p>${escapeHtml(client.phone)}</p></div>
+      <div><small class="muted">Client portal</small><p><span class="badge ${client.portal_enabled ? "good" : "warn"}">${client.portal_enabled ? "Access enabled" : "Access disabled"}</span></p></div>
     </div>
-    <p>Overall progress · <strong>${percent}%</strong></p><div class="progress"><span style="width:${percent}%"></span></div>
-    <div class="card-heading"><h3>Document checklist</h3><span class="badge">${required.filter((doc) => doc.status === "verified").length}/${required.length} mandatory verified</span></div>
+    <div class="detail-progress"><p><span>Overall progress</span><strong>${percent}%</strong></p><div class="progress" role="progressbar" aria-label="Overall application progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><span style="width:${percent}%"></span></div></div>
+    <div class="section-heading checklist-heading"><div><p class="eyebrow">Step 1</p><h3>Document checklist</h3><p class="muted">Choose a status for each item. Only required, applicable documents block the next step.</p></div><div class="checklist-counts" role="group" aria-label="Checklist progress"><span class="badge">${documents.filter((doc) => doc.applicable && ["received", "verified"].includes(doc.status)).length}/${documents.filter((doc) => doc.applicable).length} submitted</span><span class="badge">${required.filter((doc) => doc.status === "verified").length}/${required.length} required verified</span></div></div>
+    <aside class="checklist-guidance"><p class="small muted">A passport valid for the whole stay and the details for the online application are needed. Other evidence depends on the visit and the applicant's circumstances; mark applicable items required for this case. Non-English or Welsh documents need a certified translation. The JIT form is our own requirement, not a UKVI document. <a href="https://www.gov.uk/standard-visitor/apply-standard-visitor-visa" target="_blank" rel="noopener noreferrer">UK application requirements</a> · <a href="https://www.gov.uk/government/publications/visitor-visa-guide-to-supporting-documents/guide-to-supporting-documents-visiting-the-uk" target="_blank" rel="noopener noreferrer">UKVI supporting documents</a></p></aside>
     <div class="doc-list">${documents.length ? documents.map((document) => `
       <div class="doc-row">
-        <div><strong>${escapeHtml(document.label)}</strong><small class="muted"> · ${document.required ? "Mandatory" : "Optional"}${document.applicable ? "" : " · Not applicable"}</small></div>
-        <select data-doc-rule="${escapeHtml(document.id)}" data-old="${document.required && document.applicable ? "required" : document.required ? "not_applicable" : "optional"}" aria-label="Requirement for ${escapeHtml(document.label)}">
-          ${options(document.required && document.applicable ? "required" : document.required ? "not_applicable" : "optional", ["required", "optional", "not_applicable"])}
-        </select>
-        <select data-doc-status="${escapeHtml(document.id)}" data-old="${escapeHtml(document.status)}" aria-label="Status for ${escapeHtml(document.label)}">
-          ${options(document.status, ["pending", "received", "verified", "needs_correction"])}
+        <div class="doc-info"><strong>${escapeHtml(document.label)}</strong><small class="muted">${document.required && document.applicable ? "Required" : document.applicable ? "As applicable" : "Not applicable"}${document.status === "needs_correction" ? " · Needs correction" : ""}</small>
+          <details class="doc-settings"><summary>Change requirement</summary><select data-doc-rule="${escapeHtml(document.id)}" data-old="${!document.applicable ? "not_applicable" : document.required ? "required" : "optional"}" aria-label="Requirement for ${escapeHtml(document.label)}">
+            <option value="required"${document.required && document.applicable ? " selected" : ""}>Required</option><option value="optional"${!document.required && document.applicable ? " selected" : ""}>As applicable</option><option value="not_applicable"${!document.applicable ? " selected" : ""}>Not applicable</option>
+          </select></details>
+        </div>
+        <select class="doc-status ${document.status === "verified" ? "is-verified" : ""}" data-doc-status="${escapeHtml(document.id)}" data-old="${escapeHtml(document.status)}" aria-label="Status for ${escapeHtml(document.label)}">
+          ${statusOptions(document.status)}
         </select>
       </div>`).join("") : `<p class="notice">No checklist is configured for this application type.</p>`}</div>
-    <div class="heading-row">
+    <form class="add-document" data-add-document><label>Additional document<input name="label" maxlength="180" placeholder="Enter a document name" required></label><label>Requirement<select name="required"><option value="false">As applicable</option><option value="true">Required</option></select></label><button class="button outline" type="submit">Add document</button></form>
+    <div class="detail-actions">
       <button class="button gold" data-proceed${!canProceed || application.application_started ? " disabled" : ""}>${application.application_started ? "Application stage unlocked" : "Proceed to visa application"}</button>
       <button class="button outline" data-client-link>${client.portal_enabled ? "Email / resend client access link" : "Enable access and email link"}</button>
       ${client.portal_enabled ? `<button class="button outline" data-revoke-link>Revoke client access</button>` : ""}
     </div>
-    <h3>Application progress</h3>
+    ${application.application_started ? `<section class="workflow-panel"><div class="section-heading" id="application-progress"><div><p class="eyebrow">Step 2</p><h3>Application progress</h3><p class="muted">Update the stages below and save your changes.</p></div></div>
     <form data-workflow>
       <div class="form-grid">
         <label>Current stage<select name="current_stage">${options(application.current_stage, ["Document collection", "Documents complete", "Application in progress", "Awaiting appointment", "Awaiting visa decision"])}</select></label>
@@ -175,15 +191,22 @@ function renderDetail() {
         <label>Final application status<select name="final_status">${options(application.final_status, ["", "Awaiting Biometrics", "Biometrics Completed", "Awaiting Visa Decision", "Visa Approved", "Visa Refused"])}</select></label>
       </div>
       <button class="button primary" type="submit">Save progress</button>
-    </form>
-    <h3>Internal staff notes</h3>
-    <form class="toolbar" data-note-form>
+    </form></section>` : ""}
+    <section class="staff-notes" aria-labelledby="staff-notes-title"><h3 id="staff-notes-title">Private staff notes</h3>
+    <form class="note-form" data-note-form>
       <select name="document_id" aria-label="Attach note to a document"><option value="">General application note</option>${documents.map((document) => `<option value="${escapeHtml(document.id)}">${escapeHtml(document.label)}</option>`).join("")}</select>
       <input name="note" maxlength="3000" placeholder="Private staff note" required><button class="button outline">Add note</button>
     </form>
-    <div data-notes></div>`;
+    <div data-notes></div></section>`;
 
-  $("[data-close-detail]", detail).addEventListener("click", () => { state.selectedId = null; renderDetail(); });
+  for (const [key, value] of Object.entries(draft)) {
+    const field = $("[data-workflow]", detail).elements.namedItem(key);
+    if (field) field.value = value;
+  }
+  for (const [key, value] of Object.entries(noteDraft)) {
+    const field = $("[data-note-form]", detail).elements.namedItem(key);
+    if (field) field.value = value;
+  }
   detail.querySelectorAll("[data-doc-status]").forEach((control) => {
     control.addEventListener("change", async () => {
       try {
@@ -193,11 +216,12 @@ function renderDetail() {
         await loadData();
         toast("Document status saved.");
       } catch (error) {
-        control.value = control.dataset.old;
+        control.value = control.dataset.old === "needs_correction" ? "" : control.dataset.old;
         toast(error.message, true);
       }
     });
-    detail.querySelectorAll("[data-doc-rule]").forEach((control) => {
+  });
+  detail.querySelectorAll("[data-doc-rule]").forEach((control) => {
       control.addEventListener("change", async () => {
         try {
           const { error } = await supabase.from("application_documents").update({
@@ -211,8 +235,33 @@ function renderDetail() {
           control.value = control.dataset.old;
           toast(error.message, true);
         }
-      });
     });
+  });
+  $("[data-add-document]", detail).addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const values = new FormData(form);
+      const label = String(values.get("label")).trim();
+      if (!label) {
+        toast("Enter a document name.", true);
+        return;
+      }
+      const button = form.querySelector("button");
+      button.disabled = true;
+      try {
+        const { error } = await supabase.from("application_documents").insert({
+          client_id: client.id,
+          application_id: application.id,
+          label,
+          required: values.get("required") === "true",
+          sort_order: Math.min(32767, Math.max(0, ...documents.map((item) => item.sort_order)) + 1),
+          updated_by: state.profile.id,
+        });
+        if (error) throw error;
+        await loadData();
+        toast("Additional document added.");
+      } catch (error) { toast(error.message, true); }
+      finally { button.disabled = false; }
   });
   $("[data-proceed]", detail).addEventListener("click", async () => {
     try {
@@ -221,6 +270,7 @@ function renderDetail() {
       if (error) throw error;
       await loadData();
       toast("Visa application stage unlocked.");
+      $("[id=application-progress]", detail)?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (error) { toast(error.message, true); }
   });
   $("[data-client-link]", detail).addEventListener("click", async () => {
@@ -242,7 +292,7 @@ function renderDetail() {
       toast("Client portal access revoked.");
     } catch (error) { toast(error.message, true); }
   });
-  $("[data-workflow]", detail).addEventListener("submit", async (event) => {
+  $("[data-workflow]", detail)?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
     const changes = {
@@ -295,7 +345,10 @@ function renderDetail() {
       toast("Private note saved.");
     } catch (error) { toast(error.message, true); }
   });
-  void renderNotes(application.id).catch((error) => { $("[data-notes]", detail).textContent = error.message; });
+  void renderNotes(application.id).catch((error) => {
+    const notes = $("[data-notes]", detail);
+    if (notes && state.selectedId === application.id) notes.textContent = error.message;
+  });
 }
 
 async function renderNotes(applicationId) {
@@ -303,6 +356,7 @@ async function renderNotes(applicationId) {
     .select("note,document_id,created_at,profiles(full_name,email)").eq("application_id", applicationId)
     .order("created_at", { ascending: false });
   if (error) throw error;
+  if (state.selectedId !== applicationId || !$("[data-notes]", detail)) return;
   $("[data-notes]", detail).innerHTML = (data || []).map((item) => {
     const profile = Array.isArray(item.profiles) ? item.profiles[0] : item.profiles;
     const document = state.documents.find((entry) => entry.id === item.document_id);
@@ -395,18 +449,18 @@ document.querySelectorAll("[data-tab]").forEach((button) => {
   });
 });
 
-$("[data-search]").addEventListener("input", renderList);
-$("[data-refresh]").addEventListener("click", () => { void loadData().catch((error) => toast(error.message, true)); });
-$("[data-add]").addEventListener("click", () => {
+$("[data-search]")?.addEventListener("input", renderList);
+$("[data-refresh]")?.addEventListener("click", () => { void loadData().catch((error) => toast(error.message, true)); });
+$("[data-add]")?.addEventListener("click", () => {
   $("[data-client-form]").elements.registered_at.value = new Date().toISOString().slice(0, 10);
   dialog.showModal();
 });
-$("[data-close]").addEventListener("click", () => dialog.close());
+$("[data-close]")?.addEventListener("click", () => dialog.close());
 $("[data-sign-out]").addEventListener("click", async () => {
   await supabase.auth.signOut();
   window.location.replace("/visa-tracker/login/");
 });
-$("[data-client-form]").addEventListener("submit", async (event) => {
+$("[data-client-form]")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
   const values = new FormData(form);
@@ -431,7 +485,6 @@ $("[data-client-form]").addEventListener("submit", async (event) => {
     });
     form.reset();
     dialog.close();
-    state.selectedId = applicationId;
     await loadData();
     if (accessError) toast(`Application saved, but client email failed: ${accessError.message}`, true);
     else toast("Application registered. A secure progress link has been emailed to the client.");
@@ -447,7 +500,7 @@ async function initialize() {
   if (!supabaseReady) {
     setup.textContent = setupMessage;
     setup.hidden = false;
-    list.textContent = "Supabase is not configured. No records are displayed.";
+    (list || detail).textContent = "Supabase is not configured. No records are displayed.";
     document.querySelectorAll("main button, main input").forEach((item) => { item.disabled = true; });
     $("[data-sign-out]").disabled = true;
     return;
@@ -455,19 +508,21 @@ async function initialize() {
   try {
     state.profile = await requireStaff();
     if (!state.profile) return;
-    $("[data-staff-name]").textContent = state.profile.full_name || state.profile.email;
-    if (state.profile.role !== "admin") $('[data-tab="staff"]').hidden = true;
+    if (!isDetailPage) {
+      $("[data-staff-name]").textContent = state.profile.full_name || state.profile.email;
+      if (state.profile.role !== "admin") $('[data-tab="staff"]').hidden = true;
+    }
     await loadData();
   } catch (error) {
     setup.textContent = `The portal could not load: ${error.message}`;
     setup.hidden = false;
-    list.textContent = "Application data is unavailable.";
+    (list || detail).textContent = "Application data is unavailable.";
   }
 }
 
 void initialize();
 window.setInterval(() => {
-  if (supabaseReady && !document.hidden) {
+  if (supabaseReady && !document.hidden && !isDetailPage && state.profile) {
     void loadData().catch((error) => toast(`Automatic refresh failed: ${error.message}`, true));
   }
 }, 60_000);

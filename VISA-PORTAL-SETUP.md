@@ -22,7 +22,7 @@ The Supabase connection is **not configured** in this repository yet. No Supabas
 
 1. In Supabase, open **Project Settings → API** and copy the project URL and **publishable key**. Put them into `visa-tracker/supabase-config.js`.
    - These are public browser values. Never put a service-role key in this file.
-2. Open **SQL Editor** and run both migrations in order: `supabase/migrations/20261106000100_visa_tracker.sql`, then `supabase/migrations/20261108000100_staff_invites.sql`. They create the tracker tables and permissions. Existing records are not imported.
+2. Open **SQL Editor** and run the migrations in order: `supabase/migrations/20261106000100_visa_tracker.sql`, `supabase/migrations/20261108000100_staff_invites.sql`, then `supabase/migrations/20261111000100_visitor_checklist.sql`. They create the tracker tables and permissions and set up the updated checklist. Existing records are not imported.
 3. In **Authentication → Settings**, disable public sign-ups. Set the site URL to `https://www.jitgroupofcompanies.com` and allow these redirects:
    - `https://www.jitgroupofcompanies.com/visa-tracker/login/`
    - `https://www.jitgroupofcompanies.com/visa-tracker/portal/`
@@ -38,6 +38,8 @@ The Supabase connection is **not configured** in this repository yet. No Supabas
 
 5. To add staff, sign into the tracker as an administrator, open **Staff**, and send an invitation. The staff member sets their password from the email link. Do not give out administrator access to ordinary staff. To disable staff access, set `profiles.status` to `disabled` and disable that Auth user.
 6. To use the tracker locally, serve the repository root over HTTP (for example `python -m http.server 8000`) and open `/visa-tracker/login/`. ES modules and Supabase cannot be tested from a `file://` URL.
+
+If a staff member is returned to sign-in, check that their Auth user has a matching `profiles` row with the same user ID, role `admin` or `staff`, and status `active`. Creating an Auth user alone does not grant tracker access. If the sign-in session is missing, check that browser storage and cookies are allowed for the website. Do not change access policies to bypass these checks.
 
 ## Connect Resend and email
 
@@ -70,3 +72,11 @@ No hosting or Cloudflare setting was changed and nothing was deployed from this 
 ## Before using real records
 
 Test with a few non-sensitive records: denied staff access, a valid staff login, staff password reset, a client's one-time email link, cross-client RLS denial, document progression gates, link revocation, progress refresh, and Resend delivery. Do not migrate existing clients until the Supabase configuration and tests are complete.
+
+## UK visitor checklist update
+
+For an existing deployment, run `supabase/migrations/20261111000100_visitor_checklist.sql` once in the Supabase SQL Editor before publishing the updated interface. It preserves existing checklist entries and statuses, adds optional case-specific guidance items to existing UK Standard Visitor applications, and updates the template for new applications. It also permits choosing Verified directly and prevents application-stage updates before the checklist is unlocked. The original migrations must already be applied; do not rerun them.
+
+The checklist reflects the [UKVI supporting documents guidance](https://www.gov.uk/government/publications/visitor-visa-guide-to-supporting-documents/guide-to-supporting-documents-visiting-the-uk), checked 11 November 2026. A valid passport or other accepted travel document is required; other evidence varies by circumstances. The client information form is a JIT operational requirement, not a UKVI requirement. Staff should review each case and mark relevant evidence as required when appropriate. Existing requirements and progression gates remain unchanged.
+
+Staff open a separate application page from the client list. The full checklist is shown first; application progress is shown only after the required, applicable documents are verified and staff click Proceed to visa application. Existing applications already marked as started remain unlocked.

@@ -15,6 +15,12 @@ if (!supabaseReady) {
 }
 const invitation = window.location.hash.includes("type=invite");
 const passwordRecovery = window.location.hash.includes("type=recovery");
+const reason = new URLSearchParams(window.location.search).get("reason");
+if (!invitation && !passwordRecovery && reason === "staff-access") {
+  showMessage(message, "This account does not have active staff access. Ask an administrator to check its staff profile in Supabase.", true);
+} else if (!invitation && !passwordRecovery && reason === "session") {
+  showMessage(message, "Your sign-in session could not be found or has expired. Please sign in again.", true);
+}
 if (supabaseReady && (invitation || passwordRecovery)) {
   form.hidden = true;
   reset.hidden = true;

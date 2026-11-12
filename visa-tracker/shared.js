@@ -34,7 +34,7 @@ export async function requireStaff() {
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) throw sessionError;
   if (!sessionData.session) {
-    window.location.replace("/visa-tracker/login/");
+    window.location.replace("/visa-tracker/login/?reason=session");
     return null;
   }
   const { data: profile, error } = await supabase.from("profiles")
@@ -42,8 +42,9 @@ export async function requireStaff() {
     .eq("id", sessionData.session.user.id).maybeSingle();
   if (error) throw error;
   if (!profile || profile.status !== "active" || !["admin", "staff"].includes(profile.role)) {
-    await supabase.auth.signOut();
-    window.location.replace("/visa-tracker/login/");
+    const { error: signOutError } = await supabase.auth.signOut();
+    if (signOutError) throw signOutError;
+    window.location.replace("/visa-tracker/login/?reason=staff-access");
     return null;
   }
   return profile;
