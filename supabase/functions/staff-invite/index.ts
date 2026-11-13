@@ -76,7 +76,12 @@ Deno.serve(async (request) => {
     });
     if (inviteError || !invitation.user) {
       console.error("Staff invitation failed:", inviteError?.message || "No invited user returned.");
-      return response(origin, { error: "The invitation could not be sent. Check whether this email already has an account." }, 409);
+      if (inviteError && /already (?:been )?registered|already exists/i.test(inviteError.message)) {
+        return response(origin, {
+          error: "This email already has an account. If it is listed under Staff, sign in or use password recovery. Otherwise, ask an administrator to review the existing account.",
+        }, 409);
+      }
+      return response(origin, { error: "The invitation email could not be sent. Ask an administrator to check the Supabase Auth email settings and function logs." }, 502);
     }
 
     const { error: insertError } = await admin.from("profiles").insert({

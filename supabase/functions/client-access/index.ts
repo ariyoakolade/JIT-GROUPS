@@ -17,25 +17,43 @@ function response(origin: string, body: unknown, status = 200): Response {
   });
 }
 
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "\"": "&quot;",
-    "'": "&#39;",
-  })[character]);
-}
-
 function requiredEnv(name: string): string {
   const value = Deno.env.get(name);
   if (!value) throw new Error(`Missing server secret: ${name}`);
   return value;
 }
 
+function escapeHtml(value: string): string {
+  const entities: Record<string, string> = {
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  };
+  return value.replace(/[&<>"']/g, (character) => entities[character] || character);
+}
+
+function welcomeEmail(name: string, reference: string, registeredAt: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(registeredAt)) throw new Error("Invalid registration date.");
+  const date = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })
+    .format(new Date(`${registeredAt}T00:00:00Z`));
+  const greeting = `Dear ${name},`;
+  const paragraphs = [
+    "Thank you for choosing JIT Travels for your visa application and travel assistance needs.",
+    "We are pleased to confirm that your application has been successfully registered in our system. Our team will be working with you throughout the process and providing the necessary guidance and assistance at every important stage.",
+    "We are pleased to inform you that the processing of your application has commenced. Our team is currently reviewing and verifying the documents and information submitted to ensure that everything is in order.",
+    "Should we require any additional documents, clarification or information, a member of our team will contact you directly.",
+    "Please be assured that we will keep you informed of important developments as your application progresses.",
+    "We appreciate your trust in JIT Travels and look forward to providing you with a smooth, transparent and professional application experience.",
+    "Thank you for choosing us.",
+  ];
+  const text = `${greeting}\n\nWELCOME TO JIT TRAVELS!\n\n${paragraphs[0]}\n\n${paragraphs[1]}\n\nYOUR APPLICATION DETAILS\n\nApplication Reference: ${reference}\nApplication Status: Processing Commenced\nRegistration Date: ${date}\n\nWHAT HAPPENS NEXT?\n\n${paragraphs.slice(2).join("\n\n")}\n\nWarm regards,\nVisa Processing Team\nJIT Travels`;
+  const html = `<div style="background:#f5f7f6;padding:24px;font-family:Arial,sans-serif;color:#17272b"><div style="max-width:600px;margin:auto;background:#fff;border-top:5px solid #c69a2b;padding:32px;line-height:1.6"><p style="color:#102b33;font-size:20px;font-weight:bold">JIT TRAVELS</p><h1 style="color:#102b33;font-size:24px">WELCOME TO JIT TRAVELS!</h1><p>${escapeHtml(greeting)}</p><p>${escapeHtml(paragraphs[0])}</p><p>${escapeHtml(paragraphs[1])}</p><h2 style="color:#102b33;font-size:18px">YOUR APPLICATION DETAILS</h2><p><strong>Application Reference:</strong> ${escapeHtml(reference)}<br><strong>Application Status:</strong> Processing Commenced<br><strong>Registration Date:</strong> ${escapeHtml(date)}</p><h2 style="color:#102b33;font-size:18px">WHAT HAPPENS NEXT?</h2>${paragraphs.slice(2).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}<p>Warm regards,<br><strong>Visa Processing Team<br>JIT Travels</strong></p></div></div>`;
+  return { subject: `Welcome to JIT Travels - ${reference}`, text, html };
+}
+
 Deno.serve(async (request) => {
   const origin = request.headers.get("Origin") || "";
-  if (!allowedOrigins.includes(origin)) return new Response("Forbidden", { status: 403 });
+  const webhookSecret = Deno.env.get("WELCOME_WEBHOOK_SECRET");
+  const webhook = Boolean(webhookSecret && request.headers.get("x-welcome-secret") === webhookSecret);
+  if (!webhook && !allowedOrigins.includes(origin)) return new Response("Forbidden", { status: 403 });
   if (request.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
@@ -50,101 +68,86 @@ Deno.serve(async (request) => {
   if (request.method !== "POST") return response(origin, { error: "Method not allowed." }, 405);
 
   try {
-    if (!appUrl) return response(origin, { error: "The application URL is not configured." }, 503);
     const url = requiredEnv("SUPABASE_URL");
-    const anonKey = requiredEnv("SUPABASE_ANON_KEY");
-    const serviceKey = requiredEnv("SUPABASE_SERVICE_ROLE_KEY");
-    const authorization = request.headers.get("Authorization") || "";
-    const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1];
-    if (!token) return response(origin, { error: "Please sign in again." }, 401);
-
-    const authClient = createClient(url, anonKey, { auth: { persistSession: false } });
-    const { data: userData, error: authError } = await authClient.auth.getUser(token);
-    if (authError || !userData.user) return response(origin, { error: "Please sign in again." }, 401);
-
-    const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
-    const { data: profile, error: profileError } = await admin.from("profiles")
-      .select("id,role,status").eq("id", userData.user.id).maybeSingle();
-    if (profileError || !profile || profile.status !== "active" || !["admin", "staff"].includes(profile.role)) {
-      return response(origin, { error: "You are not authorized to send client emails." }, 403);
+    const admin = createClient(url, requiredEnv("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
+    if (!webhook) {
+      const token = request.headers.get("Authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+      if (!token) return response(origin, { error: "Please sign in again." }, 401);
+      const auth = createClient(url, requiredEnv("SUPABASE_ANON_KEY"), { auth: { persistSession: false } });
+      const { data: user, error: authError } = await auth.auth.getUser(token);
+      if (authError || !user.user) return response(origin, { error: "Please sign in again." }, 401);
+      const { data: profile, error: profileError } = await admin.from("profiles")
+        .select("role,status").eq("id", user.user.id).maybeSingle();
+      if (profileError) throw new Error(`Could not check staff permissions: ${profileError.message}`);
+      if (!profile || profile.status !== "active" || !["admin", "staff"].includes(profile.role)) {
+        return response(origin, { error: "Only active staff can send welcome emails." }, 403);
+      }
     }
 
     const body = await request.json();
-    const action = String(body.action || "create");
-    const applicationId = String(body.applicationId || "");
-    if (!/^[0-9a-f-]{36}$/i.test(applicationId) || !["create", "milestone"].includes(action)) {
-      return response(origin, { error: "A valid application email request is required." }, 400);
+    const applicationId = webhook ? body.record?.application_id : body.applicationId;
+    if (webhook && (body.type !== "INSERT" || body.schema !== "public" ||
+        body.table !== "email_notifications")) {
+      return response(origin, { error: "Invalid welcome notification event." }, 400);
     }
-
-    const { data: application, error: applicationError } = await admin.from("applications")
-      .select("id,reference,current_stage,final_status,ukvi_status,payment_status,appointment_status,upload_status,clients!inner(id,full_name,email,portal_enabled)")
-      .eq("id", applicationId).maybeSingle();
-    if (applicationError || !application) return response(origin, { error: "Application not found." }, 404);
-    const client = Array.isArray(application.clients) ? application.clients[0] : application.clients;
-    if (!client.portal_enabled) return response(origin, { error: "Client portal access is disabled. Enable it before sending an email." }, 403);
-
-    const resendKey = Deno.env.get("RESEND_API_KEY");
-    const from = Deno.env.get("EMAIL_FROM") || "JIT Travels <VISAAPPLICATION@jitgroupofcompanies.com>";
-    if (Deno.env.get("EMAIL_SENDING_ENABLED") !== "true" || !resendKey) {
-      return response(origin, { error: "Email sending is disabled until Resend and the sender domain are configured." }, 503);
+    if (webhook && body.record?.kind !== "welcome") {
+      return response(origin, { message: "No welcome email required." });
     }
+    if (!webhook && body.action !== "welcome") return response(origin, { error: "Invalid email action." }, 400);
+    if (typeof applicationId !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(applicationId)) {
+      return response(origin, { error: "A valid application is required." }, 400);
+    }
+    const { data: claim, error: claimError } = await admin.rpc("claim_welcome_email", { p_application_id: applicationId });
+    if (claimError) throw new Error(`Could not claim welcome email: ${claimError.message}`);
+    if (claim.state === "not_found") return response(origin, { error: "No welcome email is queued for this application." }, 404);
+    if (claim.state === "sent") return response(origin, { message: "Welcome email was already accepted by the email provider." });
+    if (claim.state === "processing") return response(origin, { message: "The welcome email is already being processed." });
+    if (claim.state === "expired") {
+      return response(origin, { error: "The previous email attempt is too old for a safe retry. Check Resend before contacting an administrator." }, 409);
+    }
+    if (claim.state !== "claimed") throw new Error("Unexpected welcome email state.");
 
-    let subject: string;
-    let text: string;
-    let html: string;
-    if (action === "create") {
-      let createError = null;
-      const { error } = await admin.auth.admin.createUser({
-        email: client.email,
-        email_confirm: true,
-        user_metadata: { full_name: client.full_name, account_type: "client" },
-      });
-      createError = error;
-      if (createError && !/already (been )?registered|already exists/i.test(createError.message)) {
-        throw new Error("The client portal account could not be prepared.");
+    let providerId: string | null = null;
+    let failure: string | null = null;
+    try {
+      if (Deno.env.get("EMAIL_SENDING_ENABLED") !== "true") throw new Error("Welcome email sending is disabled.");
+      const resendKey = requiredEnv("RESEND_API_KEY");
+      if (typeof claim.details?.name !== "string" || typeof claim.details?.reference !== "string" ||
+          typeof claim.details?.registered_at !== "string" || typeof claim.recipient !== "string") {
+        throw new Error("The welcome email details are incomplete.");
       }
-
-      const { data: magicLink, error: linkError } = await admin.auth.admin.generateLink({
-        type: "magiclink",
-        email: client.email,
-        options: { redirectTo: `${appUrl}/visa-tracker/portal/` },
+      const email = welcomeEmail(claim.details.name, claim.details.reference, claim.details.registered_at);
+      const { error: startError } = await admin.rpc("start_welcome_request", { p_id: claim.id });
+      if (startError) throw new Error(`Could not record email request: ${startError.message}`);
+      const result = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendKey}`,
+          "Content-Type": "application/json",
+          "Idempotency-Key": `jit-welcome/${claim.id}`,
+        },
+        body: JSON.stringify({
+          from: "JIT Travels <VISAAPPLICATION@jitgroupofcompanies.com>",
+          to: [claim.recipient], ...email,
+        }),
       });
-      if (linkError || !magicLink.properties?.action_link) throw new Error("A secure sign-in link could not be created.");
-      const safeName = escapeHtml(client.full_name);
-      const safeReference = escapeHtml(application.reference);
-      const safeLink = escapeHtml(magicLink.properties.action_link);
-      subject = `Your JIT Travels application progress · ${application.reference}`;
-      text = `Hello ${client.full_name}, your application ${application.reference} is ready to view. Open this one-time sign-in link: ${magicLink.properties.action_link}`;
-      html = `<p>Hello ${safeName},</p><p>Your JIT Travels application <strong>${safeReference}</strong> is ready to view.</p><p><a href="${safeLink}">Open your secure progress page</a></p><p>This sign-in link is private and can be used once. If it expires, contact JIT Travels to request another.</p>`;
-    } else {
-      const milestone = application.final_status === "Visa Approved" || application.final_status === "Visa Refused"
-        ? application.final_status
-        : application.final_status === "Awaiting Visa Decision" ? application.final_status
-        : application.current_stage;
-      subject = `JIT Travels application update · ${application.reference}`;
-      text = `Hello ${client.full_name}, your application ${application.reference} has been updated. Current stage: ${milestone}. Sign in at ${appUrl}/visa-tracker/portal/ to view progress.`;
-      html = `<p>Hello ${escapeHtml(client.full_name)},</p><p>Your application <strong>${escapeHtml(application.reference)}</strong> has been updated.</p><p>Current stage: <strong>${escapeHtml(milestone)}</strong>.</p><p>Sign in at <a href="${escapeHtml(`${appUrl}/visa-tracker/portal/`)}">your JIT Travels progress page</a> to see the latest details.</p>`;
+      if (!result.ok) throw new Error(`Resend rejected the welcome email (HTTP ${result.status}).`);
+      const resultBody = await result.json();
+      if (typeof resultBody.id !== "string") throw new Error("Resend returned no email ID.");
+      providerId = resultBody.id;
+    } catch (error) {
+      failure = error instanceof Error ? error.message : "The welcome email could not be sent.";
+      console.error("Welcome email failed:", failure);
     }
-
-    const emailResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from, to: [client.email], subject, text, html }),
+    const { error: finishError } = await admin.rpc("finish_welcome_email", {
+      p_id: claim.id, p_provider_id: providerId, p_error: failure,
     });
-    const emailResult = await emailResponse.json().catch(() => ({}));
-    const { error: logError } = await admin.from("email_notifications").insert({
-      application_id: application.id,
-      recipient: client.email,
-      kind: action === "create" ? "client_access" : "milestone",
-      status: emailResponse.ok ? "sent" : "failed",
-      provider_id: emailResult.id || null,
-      created_by: userData.user.id,
-    });
-    if (logError) console.error("Email log write failed:", logError.message);
-    if (!emailResponse.ok) return response(origin, { error: "The email service could not send this message." }, 502);
-    return response(origin, { message: action === "create" ? "Secure client access link emailed." : "Application update emailed." });
+    if (finishError) throw new Error(`Could not record welcome email result: ${finishError.message}`);
+    if (failure) return response(origin, { error: failure }, 502);
+    return response(origin, { message: "Welcome email accepted by the email provider." });
   } catch (error) {
-    console.error("Client email function failed:", error);
-    return response(origin, { error: "The email request could not be completed. Check the Supabase function logs." }, 500);
+    console.error("Welcome email request failed:", error);
+    return response(origin, { error: "The welcome email could not be processed. Check the function logs." }, 500);
   }
 });

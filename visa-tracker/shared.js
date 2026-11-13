@@ -49,12 +49,3 @@ export async function requireStaff() {
   }
   return profile;
 }
-
-export async function sendClientAccessLink(applicationId) {
-  const { data, error } = await supabase.functions.invoke("client-access", {
-    body: { applicationId },
-  });
-  if (error) throw new Error(data?.error || error.message);
-  if (data?.error) throw new Error(data.error);
-  return data;
-}

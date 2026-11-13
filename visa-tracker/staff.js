@@ -1,5 +1,5 @@
 import {
-  requireStaff, sendClientAccessLink, showMessage, setupMessage,
+  requireStaff, showMessage, setupMessage,
   supabase, supabaseReady, escapeHtml
 } from "./shared.js";
 
@@ -153,7 +153,7 @@ function renderDetail() {
     <div class="facts application-facts">
       <div><small class="muted">Client email</small><p>${escapeHtml(client.email)}</p></div>
       <div><small class="muted">Phone number</small><p>${escapeHtml(client.phone)}</p></div>
-      <div><small class="muted">Client portal</small><p><span class="badge ${client.portal_enabled ? "good" : "warn"}">${client.portal_enabled ? "Access enabled" : "Access disabled"}</span></p></div>
+      <div><small class="muted">Client portal</small><p><span class="badge warn">Not available</span></p></div>
     </div>
     <div class="detail-progress"><p><span>Overall progress</span><strong>${percent}%</strong></p><div class="progress" role="progressbar" aria-label="Overall application progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><span style="width:${percent}%"></span></div></div>
     <div class="section-heading checklist-heading"><div><p class="eyebrow">Step 1</p><h3>Document checklist</h3><p class="muted">Choose a status for each item. Only required, applicable documents block the next step.</p></div><div class="checklist-counts" role="group" aria-label="Checklist progress"><span class="badge">${documents.filter((doc) => doc.applicable && ["received", "verified"].includes(doc.status)).length}/${documents.filter((doc) => doc.applicable).length} submitted</span><span class="badge">${required.filter((doc) => doc.status === "verified").length}/${required.length} required verified</span></div></div>
@@ -172,8 +172,7 @@ function renderDetail() {
     <form class="add-document" data-add-document><label>Additional document<input name="label" maxlength="180" placeholder="Enter a document name" required></label><label>Requirement<select name="required"><option value="false">As applicable</option><option value="true">Required</option></select></label><button class="button outline" type="submit">Add document</button></form>
     <div class="detail-actions">
       <button class="button gold" data-proceed${!canProceed || application.application_started ? " disabled" : ""}>${application.application_started ? "Application stage unlocked" : "Proceed to visa application"}</button>
-      <button class="button outline" data-client-link>${client.portal_enabled ? "Email / resend client access link" : "Enable access and email link"}</button>
-      ${client.portal_enabled ? `<button class="button outline" data-revoke-link>Revoke client access</button>` : ""}
+      <button class="button outline" type="button" data-retry-welcome>Retry welcome email</button>
     </div>
     ${application.application_started ? `<section class="workflow-panel"><div class="section-heading" id="application-progress"><div><p class="eyebrow">Step 2</p><h3>Application progress</h3><p class="muted">Update the stages below and save your changes.</p></div></div>
     <form data-workflow>
@@ -273,23 +272,10 @@ function renderDetail() {
       $("[id=application-progress]", detail)?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (error) { toast(error.message, true); }
   });
-  $("[data-client-link]", detail).addEventListener("click", async () => {
+  $("[data-retry-welcome]", detail).addEventListener("click", async () => {
     try {
-      if (!client.portal_enabled) {
-        const { error } = await supabase.from("clients").update({ portal_enabled: true }).eq("id", client.id);
-        if (error) throw error;
-      }
-      const result = await sendClientAccessLink(application.id);
-      await loadData();
+      const result = await sendWelcomeEmail(application.id);
       toast(result.message);
-    } catch (error) { toast(error.message, true); }
-  });
-  $("[data-revoke-link]", detail)?.addEventListener("click", async () => {
-    try {
-      const { error } = await supabase.from("clients").update({ portal_enabled: false }).eq("id", client.id);
-      if (error) throw error;
-      await loadData();
-      toast("Client portal access revoked.");
     } catch (error) { toast(error.message, true); }
   });
   $("[data-workflow]", detail)?.addEventListener("submit", async (event) => {
@@ -307,8 +293,6 @@ function renderDetail() {
       upload_status: values.get("upload_status"),
       final_status: values.get("final_status"),
     };
-    const milestoneChanged = ["current_stage", "ukvi_status", "payment_status", "appointment_status", "upload_status", "final_status"]
-      .some((key) => changes[key] !== application[key]);
     try {
         const amount = values.get("payment_amount");
         const { error: detailError } = await supabase.from("staff_application_details").upsert({
@@ -320,12 +304,6 @@ function renderDetail() {
         if (error) throw error;
       await loadData();
       toast("Progress saved.");
-      if (milestoneChanged) {
-        const { error: emailError } = await supabase.functions.invoke("client-access", {
-          body: { action: "milestone", applicationId: application.id },
-        });
-        if (emailError) toast(`Progress saved, but update email failed: ${emailError.message}`, true);
-      }
     } catch (error) { toast(error.message, true); }
   });
   $("[data-note-form]", detail).addEventListener("submit", async (event) => {
@@ -349,6 +327,24 @@ function renderDetail() {
     const notes = $("[data-notes]", detail);
     if (notes && state.selectedId === application.id) notes.textContent = error.message;
   });
+}
+
+async function invokeStaffFunction(name, body) {
+  const { data, error } = await supabase.functions.invoke(name, { body });
+  if (error) {
+    let detail = data?.error;
+    if (!detail && error.context instanceof Response) {
+      try { detail = (await error.context.json()).error; }
+      catch (parseError) { console.error(`Could not read ${name} error response:`, parseError); }
+    }
+    throw new Error(detail || error.message);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+async function sendWelcomeEmail(applicationId) {
+  return invokeStaffFunction("client-access", { action: "welcome", applicationId });
 }
 
 async function renderNotes(applicationId) {
@@ -407,14 +403,10 @@ async function renderStaff() {
     const values = new FormData(form);
     button.disabled = true;
     try {
-      const { data: result, error: inviteError } = await supabase.functions.invoke("staff-invite", {
-        body: {
+      const result = await invokeStaffFunction("staff-invite", {
           fullName: String(values.get("full_name")).trim(),
           email: String(values.get("email")).trim().toLowerCase(),
-        },
       });
-      if (inviteError) throw new Error(result?.error || inviteError.message);
-      if (result?.error) throw new Error(result.error);
       toast(result.message);
       await renderStaff();
     } catch (inviteError) {
@@ -480,14 +472,24 @@ $("[data-client-form]")?.addEventListener("submit", async (event) => {
       },
     });
     if (error) throw error;
-    const { error: accessError } = await supabase.functions.invoke("client-access", {
-      body: { action: "create", applicationId },
-    });
+    let emailResult;
+    let emailError;
+    try {
+      emailResult = await sendWelcomeEmail(applicationId);
+    } catch (sendError) {
+      emailError = sendError;
+    }
     form.reset();
     dialog.close();
-    await loadData();
-    if (accessError) toast(`Application saved, but client email failed: ${accessError.message}`, true);
-    else toast("Application registered. A secure progress link has been emailed to the client.");
+    try {
+      await loadData();
+    } catch (refreshError) {
+      toast(`Application saved, but the list could not be refreshed: ${refreshError.message}`, true);
+      return;
+    }
+    if (emailError) {
+      toast(`Application saved, but the welcome email failed: ${emailError.message}. Open the application to retry.`, true);
+    } else toast(`Application registered. ${emailResult.message}`);
   } catch (error) {
     showMessage($("[data-form-message]"), error.message, true);
   } finally {
