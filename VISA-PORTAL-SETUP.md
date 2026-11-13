@@ -57,9 +57,9 @@ If a staff member is returned to sign-in, check that their Auth user has a match
 
 ## Host and deployment
 
-The repository is a static website with a `CNAME` file. No Cloudflare Pages/Workers config, build script, or deployment workflow was present in the inspected project. These tracker pages need no build step and are placed under the existing site root; they will be available at the paths above when that root is published. The legacy `visa-tracker.html` entry links to the Supabase staff and client pages.
+The repository is a static website with a `CNAME` file. Cloudflare's `jit-groups` Workers project publishes the repository's `main` branch and serves `www.jitgroupofcompanies.com`. These tracker pages need no build step and are placed under the existing site root. The legacy `visa-tracker.html` entry links to the Supabase staff and client pages.
 
-No hosting or Cloudflare setting was changed and nothing was deployed from this workspace. Before publishing, confirm the current hosting project serves the repository root and preview the three paths.
+For future releases, coordinate the database migration and Edge Function with the matching frontend, then verify the Cloudflare deployment and tracker paths. The current Supabase Free plan does not include scheduled database backups; arrange an independent backup before future database changes.
 
 ## Security boundaries
 
